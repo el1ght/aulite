@@ -67,9 +67,6 @@ Open `http://localhost:3000` for the dashboard.
 <img src="docs/screenshots/terminal.png" alt="Terminal" width="700" />
 </div>
 
-
-
-
 ## Features
 
 **Analysis Pipeline**
@@ -77,23 +74,21 @@ Open `http://localhost:3000` for the dashboard.
 - 143 keyword rules across all 8 EU AI Act Annex III high-risk categories
 - 11 EU-specific PII patterns (IBAN, BSN, NIR, national IDs)
 - Context-aware matching — "single-threaded" won't trigger, "is the candidate single?" will
-- Optional LLM Judge for semantic analysis (Pro)
+- Optional LLM Judge for deeper semantic analysis
 - < 5ms overhead for deterministic checks
 
 **Compliance Domains**
 
-
-| Domain                  | Annex III | Rules |
-| ----------------------- | --------- | ----- |
-| HR & Employment         | Point 4   | 33    |
-| Finance                 | Point 5   | 13    |
-| Biometrics              | Point 1   | 12    |
-| Education               | Point 3   | 13    |
-| Critical Infrastructure | Point 2   | 12    |
-| Law Enforcement         | Point 6   | 14    |
-| Migration & Asylum      | Point 7   | 13    |
-| Justice                 | Point 8   | 14    |
-
+| Domain | Annex III | Rules |
+|---|---|---|
+| HR & Employment | Point 4 | 33 |
+| Finance | Point 5 | 13 |
+| Biometrics | Point 1 | 12 |
+| Education | Point 3 | 13 |
+| Critical Infrastructure | Point 2 | 12 |
+| Law Enforcement | Point 6 | 14 |
+| Migration & Asylum | Point 7 | 13 |
+| Justice | Point 8 | 14 |
 
 Base rules (Art. 5 prohibitions, GDPR Art. 9) are always active.
 
@@ -104,107 +99,41 @@ Base rules (Art. 5 prohibitions, GDPR Art. 9) are always active.
 - Verifiable at any time via `/verify` endpoint
 - Minimum 6 months retention per Art. 26(6)
 
-**Reports (Pro)**
+**Reports**
 
 - Art. 12 Compliance Audit Report (PDF)
 - Art. 27 Fundamental Rights Impact Assessment draft (PDF)
+- Art. 72 Post-Market Monitoring Report (PDF)
 - Art. 73 Serious Incident Report (PDF)
 
 **Dashboard**
 
 - Real-time compliance overview with risk score trends
 - Flagged request browser with detail view
-- Compliance page with article violation breakdown (Pro)
-- One-click PDF report generation (Pro)
+- Compliance page with article violation breakdown
+- One-click PDF report generation
 
 **Provider Support**
 
 - OpenAI, Anthropic, Azure OpenAI
 - Any OpenAI-compatible API (Ollama, vLLM, LocalAI, llama.cpp)
-- Auto-routing by model name — `claude-`* → Anthropic, `gpt-*` → OpenAI
+- Auto-routing by model name — `claude-*` → Anthropic, `gpt-*` → OpenAI
 - SSE streaming with zero latency penalty
-
-**Security**
-
-- API key authentication with timing-safe comparison
-- Per-client rate limiting
-- 10MB request body limit
-- Security headers (X-Frame-Options, X-Content-Type-Options)
-- RSA-signed license keys
 
 ## Configuration
 
 ```yaml
-# aulite.config.yml
 provider:
   default: anthropic
 
 analysis:
-  mode: advisory        # or "enforcing" to block violations
+  mode: advisory
   domains:
     - hr
     - finance
-
-auth:
-  apiKeys:
-    - "your-secret-key"
-
-rateLimit:
-  requestsPerMinute: 60
 ```
 
-All options can be set via environment variables:
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-...
-AULITE_DOMAINS=hr,finance
-AULITE_API_KEYS=your-secret-key
-AULITE_RATE_LIMIT=60
-```
-
-See [Configuration docs](docs/configuration.md) for all options.
-
-## Self-Hosting
-
-```yaml
-# docker-compose.yml
-services:
-  aulite:
-    image: el1ght/aulite
-    ports:
-      - "3000:3000"
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AULITE_DOMAINS=hr
-    volumes:
-      - aulite-data:/app
-    restart: unless-stopped
-
-volumes:
-  aulite-data:
-```
-
-All data stays on your infrastructure. No telemetry, no phone-home.
-
-See [Self-Hosting docs](docs/self-hosting.md) for Nginx reverse proxy setup and backup procedures.
-
-## Free vs Pro
-
-
-|                                            | Free | Pro |
-| ------------------------------------------ | ---- | --- |
-| Proxy + streaming + auto-routing           | ✓    | ✓   |
-| All 143 compliance rules (8 domains)       | ✓    | ✓   |
-| PII detection                              | ✓    | ✓   |
-| Hash-chain audit trail                     | ✓    | ✓   |
-| API key auth + rate limiting               | ✓    | ✓   |
-| Dashboard (Overview + Requests + Settings) | ✓    | ✓   |
-| CLI (init, start, domains)                 | ✓    | ✓   |
-| LLM Judge (semantic analysis)              |      | ✓   |
-| PDF reports (Art. 12, 27, 73)              |      | ✓   |
-| Dashboard (Compliance + Reports)           |      | ✓   |
-| Priority support + SLA                     |      | ✓   |
-
+All options can be set via environment variables. See [Configuration docs](docs/configuration.md) for details.
 
 ## Architecture
 
@@ -218,7 +147,9 @@ Client App  →  Aulite (:3000)  →  AI Provider
               Dashboard + Reports
 ```
 
-See [Architecture docs](docs/architecture.md) for the full request flow and technical details.
+Self-hosted. Single Docker container. Your data never leaves your infrastructure.
+
+See [Architecture docs](docs/architecture.md) for the full request flow.
 
 ## Development
 
@@ -239,4 +170,3 @@ npm run build        # production build
 - [API Reference](docs/api-reference.md)
 - [Providers](docs/providers.md)
 - [Self-Hosting](docs/self-hosting.md)
-
