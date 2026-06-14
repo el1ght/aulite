@@ -1,6 +1,6 @@
 {
   "name": "aulite",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "EU AI Act compliance proxy for AI systems — real-time monitoring, audit trail, and reporting",
