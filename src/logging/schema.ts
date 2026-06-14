@@ -48,10 +48,37 @@ CREATE INDEX IF NOT EXISTS idx_check_entry ON check_details(audit_entry_id);
 CREATE INDEX IF NOT EXISTS idx_check_category ON check_details(category);
 CREATE INDEX IF NOT EXISTS idx_check_type ON check_details(check_type);
 CREATE INDEX IF NOT EXISTS idx_check_score ON check_details(risk_score);
+
+CREATE TABLE IF NOT EXISTS anchors (
+  id                    TEXT PRIMARY KEY,
+  created_at            TEXT NOT NULL,
+  anchored_sequence     INTEGER NOT NULL,
+  chain_head_hash       TEXT NOT NULL,
+  artifact              TEXT NOT NULL,
+  artifact_sha256       TEXT NOT NULL,
+  signature             TEXT NOT NULL,
+  public_key            TEXT NOT NULL,
+  rekor_uuid            TEXT,
+  rekor_log_index       INTEGER,
+  rekor_integrated_time INTEGER,
+  rekor_log_url         TEXT,
+  inclusion_proof_json  TEXT,
+  checkpoint            TEXT,
+  signed_entry_timestamp TEXT,
+  rekor_body            TEXT,
+  status                TEXT NOT NULL DEFAULT 'pending'
+);
+
+CREATE INDEX IF NOT EXISTS idx_anchor_sequence ON anchors(anchored_sequence);
+CREATE INDEX IF NOT EXISTS idx_anchor_status ON anchors(status);
 `;
 
 const MIGRATIONS = [
   "ALTER TABLE audit_entries ADD COLUMN domains TEXT NOT NULL DEFAULT '[]'",
+  "ALTER TABLE anchors ADD COLUMN inclusion_proof_json TEXT",
+  "ALTER TABLE anchors ADD COLUMN checkpoint TEXT",
+  "ALTER TABLE anchors ADD COLUMN signed_entry_timestamp TEXT",
+  "ALTER TABLE anchors ADD COLUMN rekor_body TEXT",
 ];
 
 export function initDatabase(dbPath: string): Database.Database {

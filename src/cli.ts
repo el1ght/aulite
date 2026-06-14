@@ -13,6 +13,12 @@ switch (command) {
   case "domains":
     await runDomains();
     break;
+  case "verify":
+    await runVerify();
+    break;
+  case "anchor":
+    await runAnchor();
+    break;
   case "--help":
   case "-h":
   case "help":
@@ -34,12 +40,16 @@ function printUsage(): void {
     aulite init       Set up a new project (interactive wizard)
     aulite start      Start the compliance proxy server
     aulite domains    List available compliance domains
+    aulite verify     Verify the audit hash-chain + anchors (--online to check Rekor)
+    aulite anchor     Anchor the current chain head to the Rekor transparency log
     aulite help       Show this help message
 
   Environment variables:
-    AULITE_DOMAINS    Comma-separated domains (e.g. "hr,finance")
-    AULITE_PORT       Server port (default: 3000)
-    AULITE_RULES_DIR  Custom rules directory path
+    AULITE_DOMAINS         Comma-separated domains (e.g. "hr,finance")
+    AULITE_PORT            Server port (default: 3000)
+    AULITE_RULES_DIR       Custom rules directory path
+    AULITE_ANCHOR_ENABLED  Enable periodic Rekor anchoring ("true"/"false")
+    AULITE_REKOR_URL       Rekor base URL (default: https://rekor.sigstore.dev)
 
   Examples:
     $ aulite init
@@ -167,6 +177,101 @@ logging:
     2. Run: aulite start
     3. Point your AI client to http://localhost:3000
 `);
+}
+
+async function cliConfig(): Promise<{
+  database: string;
+  anchor: { enabled: boolean; intervalMinutes: number; rekorUrl: string; keyPath: string };
+}> {
+  const { existsSync, readFileSync } = await import("node:fs");
+  const { parse } = await import("yaml");
+  const { DEFAULT_CONFIG } = await import("./config/types.js");
+
+  let raw: Record<string, any> = {};
+  for (const p of ["aulite.config.yml", "aulite.config.yaml"]) {
+    if (existsSync(p)) {
+      raw = (parse(readFileSync(p, "utf-8")) as Record<string, any>) ?? {};
+      break;
+    }
+  }
+
+  const anchor = { ...DEFAULT_CONFIG.anchor!, ...(raw.anchor ?? {}) };
+  if (process.env.AULITE_REKOR_URL) anchor.rekorUrl = process.env.AULITE_REKOR_URL;
+  if (process.env.AULITE_SIGNING_KEY_PATH) anchor.keyPath = process.env.AULITE_SIGNING_KEY_PATH;
+  const database = process.env.AULITE_DATABASE ?? raw.logging?.database ?? DEFAULT_CONFIG.logging.database;
+
+  return { database, anchor };
+}
+
+async function runVerify(): Promise<void> {
+  const { existsSync } = await import("node:fs");
+  const { initDatabase } = await import("./logging/schema.js");
+  const { AuditLog } = await import("./logging/audit-log.js");
+  const { verifyAnchorsAgainstChain, verifyAllAnchorsInRekor } = await import("./logging/anchor.js");
+
+  const online = process.argv.includes("--online");
+  const { database, anchor } = await cliConfig();
+
+  if (!existsSync(database)) {
+    console.error(`\n  No audit database found at: ${database}\n`);
+    process.exit(1);
+  }
+
+  const db = initDatabase(database);
+  const auditLog = new AuditLog(db);
+
+  const chain = auditLog.verify();
+  const anchors = verifyAnchorsAgainstChain(db);
+
+  console.log(`\n  Aulite audit verification\n  ${"─".repeat(52)}`);
+  console.log(`  Hash chain:  ${chain.valid ? "VALID" : `BROKEN at sequence ${chain.brokenAt}`} (${chain.entriesChecked} entries)`);
+  console.log(`  Anchors:     ${anchors.valid ? "VALID" : "FAILED"} (${anchors.anchorsChecked} checked)`);
+  if (anchors.inclusionChecked > 0) {
+    const incOk = anchors.inclusionValid === anchors.inclusionChecked;
+    console.log(`  Inclusion:   ${incOk ? "VALID" : "FAILED"} (${anchors.inclusionValid}/${anchors.inclusionChecked} Rekor proofs verified offline)`);
+  }
+  for (const p of anchors.problems) console.log(`    ! ${p}`);
+
+  let onlineOk = true;
+  if (online) {
+    console.log(`\n  Checking anchors against public Rekor (${anchor.rekorUrl})...`);
+    const rekor = await verifyAllAnchorsInRekor(db, { rekorUrl: anchor.rekorUrl });
+    for (const r of rekor.results) {
+      console.log(`    seq=${r.sequence} logIndex=${r.logIndex}: ${r.ok ? "confirmed" : "NOT FOUND"}`);
+    }
+    onlineOk = rekor.confirmed === rekor.checked;
+    console.log(`  Rekor:       ${onlineOk ? "VALID" : "FAILED"} (${rekor.confirmed}/${rekor.checked} confirmed)`);
+  }
+
+  db.close();
+  console.log("");
+  if (!chain.valid || !anchors.valid || !onlineOk) process.exit(1);
+}
+
+async function runAnchor(): Promise<void> {
+  const { initDatabase } = await import("./logging/schema.js");
+  const { AuditLog } = await import("./logging/audit-log.js");
+  const { loadOrCreateSigningKey, Anchorer } = await import("./logging/anchor.js");
+
+  const { database, anchor } = await cliConfig();
+  const db = initDatabase(database);
+  const auditLog = new AuditLog(db);
+  const key = loadOrCreateSigningKey(anchor.keyPath);
+  const anchorer = new Anchorer(db, auditLog, key, { rekorUrl: anchor.rekorUrl });
+
+  console.log(`\n  Anchoring chain head to Rekor (${anchor.rekorUrl})...`);
+  const rec = await anchorer.anchorNow();
+
+  if (!rec) {
+    console.log("  Nothing to anchor (empty chain, or already anchored at this sequence).\n");
+  } else if (rec.status === "anchored") {
+    console.log(`  Anchored sequence ${rec.anchoredSequence} → Rekor logIndex ${rec.rekorLogIndex}`);
+    console.log(`  Public proof: ${rec.rekorLogUrl}\n`);
+  } else {
+    console.log(`  Signed locally but Rekor upload failed (status: ${rec.status}). Will retry next run.\n`);
+  }
+
+  db.close();
 }
 
 async function runStart(): Promise<void> {

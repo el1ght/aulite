@@ -187,6 +187,10 @@ export class AuditLog {
     return { total: row.total, lastSequence: this.lastSequence };
   }
 
+  getChainHead(): { sequence: number; hash: string } {
+    return { sequence: this.lastSequence, hash: this.lastHash };
+  }
+
   getDatabase(): Database.Database {
     return this.db;
   }

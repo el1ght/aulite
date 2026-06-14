@@ -95,6 +95,20 @@ export function loadConfig(): AuliteConfig {
       requestsPerMinute: parseInt(process.env.AULITE_RATE_LIMIT, 10),
     };
   }
+  if (config.anchor) {
+    if (process.env.AULITE_ANCHOR_ENABLED) {
+      config.anchor.enabled = process.env.AULITE_ANCHOR_ENABLED === "true";
+    }
+    if (process.env.AULITE_ANCHOR_INTERVAL) {
+      config.anchor.intervalMinutes = parseInt(process.env.AULITE_ANCHOR_INTERVAL, 10);
+    }
+    if (process.env.AULITE_REKOR_URL) {
+      config.anchor.rekorUrl = process.env.AULITE_REKOR_URL;
+    }
+    if (process.env.AULITE_SIGNING_KEY_PATH) {
+      config.anchor.keyPath = process.env.AULITE_SIGNING_KEY_PATH;
+    }
+  }
   if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
     config.provider.azure = {
       baseUrl: process.env.AZURE_OPENAI_ENDPOINT,
