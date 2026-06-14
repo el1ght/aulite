@@ -313,7 +313,11 @@ export class Anchorer {
   }
 
   list(): AnchorRecord[] {
-    const rows = this.db.prepare("SELECT * FROM anchors ORDER BY anchored_sequence ASC").all() as AnchorRow[];
-    return rows.map(rowToRecord);
+    return listAnchors(this.db);
   }
+}
+
+export function listAnchors(db: Database.Database): AnchorRecord[] {
+  const rows = db.prepare("SELECT * FROM anchors ORDER BY anchored_sequence ASC").all() as AnchorRow[];
+  return rows.map(rowToRecord);
 }
