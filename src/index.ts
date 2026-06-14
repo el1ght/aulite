@@ -9,6 +9,7 @@ import { AuditLog } from "./logging/audit-log.js";
 import { createServer } from "./proxy/server.js";
 import { loadRulePacks } from "./rules/loader.js";
 import { resolveEntitlements } from "./license.js";
+import { Anchorer, loadOrCreateSigningKey } from "./logging/anchor.js";
 import { printBanner, logger } from "./utils/logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,16 @@ function main(): void {
   const app = createServer(config, auditLog, version);
 
   const { rules } = loadRulePacks(config.analysis.domains, config.analysis.rulesDir);
+
+  if (config.anchor?.enabled) {
+    const signingKey = loadOrCreateSigningKey(config.anchor.keyPath);
+    const anchorer = new Anchorer(db, auditLog, signingKey, { rekorUrl: config.anchor.rekorUrl });
+    anchorer.start(config.anchor.intervalMinutes * 60_000);
+    logger.info("Audit anchoring enabled", {
+      rekor: config.anchor.rekorUrl,
+      intervalMinutes: config.anchor.intervalMinutes,
+    });
+  }
 
   const hasDashboard = [
     resolve(__dirname, "../dashboard/dist/index.html"),

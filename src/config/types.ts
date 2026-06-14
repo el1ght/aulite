@@ -40,6 +40,12 @@ export interface AuliteConfig {
   rateLimit?: {
     requestsPerMinute: number;
   };
+  anchor?: {
+    enabled: boolean;
+    intervalMinutes: number;
+    rekorUrl: string;
+    keyPath: string;
+  };
   logging: {
     database: string;
     retentionDays: number;
@@ -66,6 +72,12 @@ export const DEFAULT_CONFIG: AuliteConfig = {
       warn: 4,
       block: 7,
     },
+  },
+  anchor: {
+    enabled: false,
+    intervalMinutes: 60,
+    rekorUrl: "https://rekor.sigstore.dev",
+    keyPath: "./aulite-signing-key.pem",
   },
   logging: {
     database: "./aulite-audit.db",
